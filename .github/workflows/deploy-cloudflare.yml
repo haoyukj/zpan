@@ -191,8 +191,15 @@ jobs:
         run: |
           sed -i "s/database_id = \"[^\"]*\"/database_id = \"${{ steps.d1.outputs.id }}\"/" wrangler.toml
           sed -i '/^binding = "CACHE_KV"$/{n;s/^id = "[^"]*"$/id = "${{ steps.kv.outputs.id }}"/;}' wrangler.toml
+          # Workers Free caps cron triggers at 5 per ACCOUNT. wrangler.toml declares 6,
+          # so a stock deploy always fails with code 10072. Trim to 4 and keep headroom.
+          # Dropped: "0 */12 * * *" (anonymous instance telemetry) and
+          # "*/10 * * * *" (cloud traffic sync — inert without a ZPan Cloud binding).
+          sed -i 's/"\*\/10 \* \* \* \*", //' wrangler.toml
+          sed -i 's/, "0 \*\/12 \* \* \*"//' wrangler.toml
           echo "--- resource bindings after patch ---"
           grep -A1 -E 'database_id|CACHE_KV' wrangler.toml
+          grep '^crons' wrangler.toml
 
       - name: Set BETTER_AUTH_SECRET (first deploy only)
         env:
